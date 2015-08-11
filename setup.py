@@ -19,7 +19,7 @@ setup(
     license='MIT',
     keywords='zerows zero ws zeromq tornado websocket',
     packages=['zerows'],
-    install_requires=['tornado'],
+    install_requires=['tornado', 'pyzmq'],
     entry_points={
         'console_scripts': [
             'zerows=zerows:main',
