@@ -67,7 +67,7 @@ handlers = [
 
 def main():
     """Main entry-point"""
-    application = Application(handlers, port=9666)
+    application = Application(handlers, port=80)
     context = zmq.Context()
     iol = ioloop.IOLoop.current()
     socket = context.socket(zmq.SUB)
@@ -75,7 +75,7 @@ def main():
     socket.setsockopt_string(zmq.SUBSCRIBE, '')
     stream = zmqstream.ZMQStream(socket, iol)
     stream.on_recv(dispatch)
-    application.listen(9666)
+    application.listen(80)
     iol.start()
 
 
