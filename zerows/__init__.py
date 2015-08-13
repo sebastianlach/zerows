@@ -72,7 +72,7 @@ def main():
     iol = ioloop.IOLoop.current()
     socket = context.socket(zmq.SUB)
     socket.bind('tcp://127.0.0.1:5000')
-    socket.setsockopt_string(zmq.SUBSCRIBE, '')
+    socket.setsockopt_string(zmq.SUBSCRIBE, u'')
     stream = zmqstream.ZMQStream(socket, iol)
     stream.on_recv(dispatch)
     application.listen(80)
