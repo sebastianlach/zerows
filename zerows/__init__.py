@@ -53,7 +53,7 @@ class EchoWebSocket(tornado.websocket.WebSocketHandler):
 
 def dispatch(message):
     for client in EchoWebSocket.clients:
-        c.on_broadcast(message[0])
+        client.on_broadcast(message[0])
 
 
 handlers = [
