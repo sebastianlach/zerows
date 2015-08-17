@@ -13,7 +13,8 @@ __maintainer__ = "Sebastian Łach"
 __email__ = "root@slach.eu"
 
 
-import logging 
+import logging
+import socket
 
 import zmq
 from zmq.eventloop import ioloop, zmqstream
@@ -23,6 +24,7 @@ import tornado
 import tornado.web
 import tornado.websocket
 from tornado.web import Application
+
 
 
 FORMAT = '%(message)s'
@@ -63,11 +65,12 @@ handlers = [
 
 def main():
     """Main entry-point"""
+    ip = socket.gethostbyname(socket.gethostname())
     application = Application(handlers, port=80)
     context = zmq.Context()
     iol = ioloop.IOLoop.current()
     socket = context.socket(zmq.SUB)
-    socket.bind('tcp://127.0.0.1:5000')
+    socket.bind('tcp://{}:5000'.format(ip))
     socket.setsockopt_string(zmq.SUBSCRIBE, u'')
     stream = zmqstream.ZMQStream(socket, iol)
     stream.on_recv(dispatch)
