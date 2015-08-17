@@ -13,7 +13,7 @@ __maintainer__ = "Sebastian Łach"
 __email__ = "root@slach.eu"
 
 
-import os
+import logging 
 
 import zmq
 from zmq.eventloop import ioloop, zmqstream
@@ -24,9 +24,9 @@ import tornado.web
 import tornado.websocket
 from tornado.web import Application
 
-import logging 
+
 FORMAT = '%(message)s'
-logging.basicConfig(format=FORMAT,level=logging.DEBUG)
+logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 logger = logging.getLogger()
 
 
@@ -41,12 +41,8 @@ class EchoWebSocket(tornado.websocket.WebSocketHandler):
         self.write_message(str(len(incoming)))
 
     def on_broadcast(self, outgoing):
-        import json
-        x = str(outgoing)[2:-1]
-        d = json.loads(x)
-        o = json.dumps(d)
-        self.write_message(o)
-        logger.error(d)
+        self.write_message(outgoing)
+        logger.error(outgoing)
 
     def on_close(self):
         self.clients.remove(self)
@@ -54,9 +50,9 @@ class EchoWebSocket(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
         return True
 
+
 def dispatch(message):
-    cluster = EchoWebSocket.clients
-    for c in cluster:
+    for client in EchoWebSocket.clients:
         c.on_broadcast(message[0])
 
 
@@ -77,7 +73,6 @@ def main():
     stream.on_recv(dispatch)
     application.listen(80)
     iol.start()
-
 
 if __name__ == '__main__':
     main()
