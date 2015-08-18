@@ -1,5 +1,6 @@
 # zerows
 
+```
 Usage: zerows [OPTIONS]
 
 Options:
@@ -25,3 +26,4 @@ Options:
                                    Set the Python log level. If 'none', tornado
                                    won't touch the logging configuration.
                                    (default info)
+```
