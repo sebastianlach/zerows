@@ -1,9 +1,10 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 """
-usage: zerows [-h] [--xsub-port [XSUB_PORT]] [--xpub-port [XPUB_PORT]]
-                 [--debug]
-                 [host [host ...]]
+usage: zerows [-h]
 """
+
 __author__ = "Sebastian Łach"
 __copyright__ = "Copyright 2015, Sebastian Łach"
 __credits__ = ["Sebastian Łach", ]
@@ -13,70 +14,93 @@ __maintainer__ = "Sebastian Łach"
 __email__ = "root@slach.eu"
 
 
-import logging
-import socket
+from json import loads
 
-import zmq
-from zmq.eventloop import ioloop, zmqstream
-ioloop.install() 
+from zmq import Context as ZMQContext, REQ
+from zmq.eventloop.zmqstream import ZMQStream
+from zmq.eventloop.ioloop import install as zmq_ioloop_install
+zmq_ioloop_install()
 
 import tornado
 import tornado.web
 import tornado.websocket
+from tornado.log import app_log
+from tornado.options import define, parse_command_line, options
 from tornado.web import Application
+from tornado.ioloop import IOLoop
 
 
+# define application options
+define('port', type=int, default=8080, help='application port number')
+define('router', type=str, default='tcp://localhost:5559', help='router url')
 
-FORMAT = '%(message)s'
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
-logger = logging.getLogger()
+
+ERROR_INVALID_REQUEST = b'{"error": "invalid request"}'
 
 
-class EchoWebSocket(tornado.websocket.WebSocketHandler):
+def load_message(message):
+    try:
+        return loads(message)
+    except ValueError as e:
+        app_log.debug(e)
+        return None
 
-    clients = set() 
+
+class ZeroMQHandler(tornado.websocket.WebSocketHandler):
+
+    def __init__(self, *args, **kwargs):
+        super(ZeroMQHandler, self).__init__(*args, **kwargs)
+        self.socket = None
+        self.stream = None
 
     def open(self):
-        self.clients.add(self)
+        settings = self.application.settings
+        self.socket = settings['zeromq']['context'].socket(REQ)
+        self.socket.connect(settings['zeromq']['url'])
+        self.stream = ZMQStream(self.socket, settings['ioloop'])
+        self.stream.on_recv(self.on_dispatch)
 
-    def on_message(self, incoming):
-        self.write_message(str(len(incoming)))
+    def on_message(self, message):
+        request = load_message(message)
+        if request:
+            data = message.encode('utf8')
+            self.stream.send(data)
+        else:
+            self.write_message(ERROR_INVALID_REQUEST)
 
-    def on_broadcast(self, outgoing):
-        self.write_message(outgoing)
-        logger.error(outgoing)
+    def on_dispatch(self, messages):
+        for message in messages:
+            data = message.encode('utf8')
+            self.write_message(data)
 
     def on_close(self):
-        self.clients.remove(self)
+        self.stream.close()
+        self.socket.close()
 
     def check_origin(self, origin):
         return True
 
-
-def dispatch(message):
-    for client in EchoWebSocket.clients:
-        client.on_broadcast(message[0])
-
-
-handlers = [
-    (r'/', EchoWebSocket)
-]
+    def data_received(self, chunk):
+        pass
 
 
 def main():
     """Main entry-point"""
-    ip = socket.gethostbyname(socket.gethostname())
-    application = Application(handlers, port=80)
-    context = zmq.Context()
-    iol = ioloop.IOLoop.current()
-    zsocket = context.socket(zmq.SUB)
-    zsocket.bind('tcp://{}:5000'.format(ip))
-    zsocket.setsockopt_string(zmq.SUBSCRIBE, u'')
-    stream = zmqstream.ZMQStream(zsocket, iol)
-    stream.on_recv(dispatch)
-    application.listen(80)
-    iol.start()
+    parse_command_line()
+    application = Application(
+        [
+            (r'/', ZeroMQHandler),
+        ],
+        ioloop=IOLoop.current(),
+        zeromq=dict(
+            context=ZMQContext(),
+            url=options.router,
+        )
+    )
+    app_log.info(application.settings)
+    application.listen(options.port)
+    application.settings['ioloop'].start()
+
 
 if __name__ == '__main__':
     main()
-
